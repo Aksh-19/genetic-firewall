@@ -1,0 +1,22 @@
+[project]
+name = "genetic-firewall"
+version = "0.1.0"
+description = "A firewall that evolves its own packet-filtering rules using a genetic algorithm."
+authors = [{name = "Aksh Solanki"}]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "scapy>=2.5.0",
+    "numpy>=1.26.0",
+    "pyyaml>=6.0",
+    "rich>=13.7.0",
+    "matplotlib>=3.8.0",
+    "click>=8.1.7"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "black>=24.0.0",
+    "flake8>=7.0.0"
+]
