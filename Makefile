@@ -14,7 +14,7 @@ format:
 	black src/ tests/
 
 run:
-	python src/main.py
+	python -m src.main
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
