@@ -73,3 +73,14 @@ def get_elites(population: Population, n_elites: int = 2) -> List[Chromosome]:
         reverse=True,
     )
     return [ind.copy() for ind in sorted_individuals[:n_elites]]
+
+
+def spawn_immigrants(count: int, chromosome_length: int) -> List[Chromosome]:
+    """
+    Random Immigrants:
+    Injects fresh random chromosomes each generation to preserve genetic
+    diversity so continuous evolution can adapt rapidly to new traffic attacks.
+    """
+    if count <= 0:
+        return []
+    return [Chromosome.random(chromosome_length) for _ in range(count)]

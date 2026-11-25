@@ -1,3 +1,4 @@
+from src.firewall.exporter import GenerationLogger, export_best_rules
 from src.firewall.rule import (
     Rule,
     decode_chromosome_to_ruleset,
@@ -18,4 +19,6 @@ __all__ = [
     "evaluate_packet",
     "evaluate_ruleset",
     "create_firewall_fitness_fn",
+    "GenerationLogger",
+    "export_best_rules",
 ]

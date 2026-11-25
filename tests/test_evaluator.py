@@ -1,3 +1,6 @@
+import json
+
+from src.firewall.exporter import GenerationLogger, export_best_rules
 from src.firewall.rule import (
     Rule,
     decode_chromosome_to_ruleset,
@@ -174,3 +177,43 @@ def test_decode_chromosome_with_src_ip_and_format():
 
     exported = format_ruleset(rules)
     assert exported == "RULE 1: DROP  TCP 203.0.113.0/24 -> any:80  [SYN, !ACK]"
+
+
+def test_rule_export_and_generation_logger(tmp_path):
+    rules = [
+        Rule("TCP", 80, "SYN_ONLY", "DROP", src_ip="203.0.113.0/24"),
+        Rule("TCP", 443, "ANY", "ALLOW", src_ip="ANY"),
+    ]
+    export_file = tmp_path / "best_rules.txt"
+    export_best_rules(
+        rules,
+        output_path=export_file,
+        generation=7,
+        fitness=420.5,
+        traffic_phase="SYN_FLOOD",
+    )
+
+    text = export_file.read_text(encoding="utf-8")
+    assert "Generation: 7" in text
+    assert "Fitness: 420.50" in text
+    assert "RULE 1: DROP  TCP 203.0.113.0/24 -> any:80  [SYN, !ACK]" in text
+    assert "RULE 2: ALLOW TCP any -> any:443  [any flags]" in text
+
+    log_file = tmp_path / "generations.jsonl"
+    logger = GenerationLogger(log_path=log_file)
+    logger.log_generation(
+        generation=7,
+        best_fitness=420.5,
+        avg_fitness=310.2,
+        rules=rules,
+        stats={"tp": 100, "tn": 325, "fp": 3, "fn": 0},
+        traffic_phase="SYN_FLOOD",
+    )
+
+    lines = log_file.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    entry = json.loads(lines[0])
+    assert entry["generation"] == 7
+    assert entry["num_rules"] == 2
+    assert entry["traffic_phase"] == "SYN_FLOOD"
+    assert entry["stats"]["tp"] == 100

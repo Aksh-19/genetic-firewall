@@ -6,6 +6,7 @@ from src.ga.operators import (
     single_point_crossover,
     bit_flip_mutation,
     get_elites,
+    spawn_immigrants,
 )
 from src.ga.engine import GAEngine
 
@@ -17,5 +18,6 @@ __all__ = [
     "single_point_crossover",
     "bit_flip_mutation",
     "get_elites",
+    "spawn_immigrants",
     "GAEngine",
 ]
