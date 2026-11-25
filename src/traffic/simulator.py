@@ -241,6 +241,8 @@ class LiveTrafficStream:
                         self._external_phase = str(pkt.get("attack_type", "BURST"))
                 except (ValueError, UnicodeDecodeError):
                     continue
+        except OSError:
+            return
         finally:
             sock.close()
 

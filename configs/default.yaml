@@ -1,0 +1,31 @@
+# The Genetic Firewall - Default Configuration
+
+ga:
+  rules_count: 6
+  population_size: 50
+  generations: 30
+  crossover_rate: 0.85
+  mutation_rate: 0.03
+  tournament_size: 3
+  elitism_count: 2
+  immigrant_rate: 0.12
+  step_delay: 0.25
+
+traffic:
+  buffer_capacity: 600
+  legit_pps: 20.0
+  attack_pps: 80.0
+  phase_duration: 10.0
+  udp_listen_port: 9999
+
+labeler:
+  window_seconds: 5.0
+  syn_threshold: 10
+  subnet_syn_threshold: 18
+  port_scan_threshold: 6
+  udp_threshold: 15
+  subnet_udp_threshold: 20
+
+logging:
+  rules_export_path: logs/best_rules.txt
+  generations_log_path: logs/generations.jsonl
