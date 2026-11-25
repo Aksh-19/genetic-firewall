@@ -1,6 +1,7 @@
 from src.firewall.rule import (
     Rule,
     decode_chromosome_to_ruleset,
+    format_ruleset,
     BITS_PER_RULE,
 )
 from src.firewall.evaluator import (
@@ -123,3 +124,53 @@ def test_ga_evolves_firewall_rules():
     # The champion ruleset should achieve high positive fitness (at least > 10.0)
     assert champion.fitness is not None
     assert champion.fitness >= 10.0
+
+
+def test_rule_src_ip_cidr_matching():
+    rule = Rule(
+        protocol="TCP",
+        dst_port=80,
+        flags_pattern="SYN_ONLY",
+        action="DROP",
+        src_ip="203.0.113.0/24",
+    )
+
+    inside_subnet = {
+        "src_ip": "203.0.113.42",
+        "dst_ip": "192.168.1.100",
+        "dst_port": 80,
+        "protocol": "TCP",
+        "flags": "S",
+    }
+    outside_subnet = {
+        "src_ip": "192.168.1.50",
+        "dst_ip": "192.168.1.100",
+        "dst_port": 80,
+        "protocol": "TCP",
+        "flags": "S",
+    }
+    malformed_ip = {
+        "src_ip": "not-an-ip",
+        "dst_port": 80,
+        "protocol": "TCP",
+        "flags": "S",
+    }
+
+    assert rule.matches(inside_subnet) is True
+    assert rule.matches(outside_subnet) is False
+    assert rule.matches(malformed_ip) is False
+
+
+def test_decode_chromosome_with_src_ip_and_format():
+    # proto=1 (TCP), port=1 (80), flags=1 (SYN_ONLY),
+    # action=1 (DROP), src_ip=10 (203.0.113.0/24 -> 1010)
+    genes = [0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0]
+    chrom = Chromosome(genes)
+
+    rules = decode_chromosome_to_ruleset(chrom, bits_per_rule=12)
+    assert len(rules) == 1
+    assert rules[0].src_ip == "203.0.113.0/24"
+    assert rules[0].action == "DROP"
+
+    exported = format_ruleset(rules)
+    assert exported == "RULE 1: DROP  TCP 203.0.113.0/24 -> any:80  [SYN, !ACK]"

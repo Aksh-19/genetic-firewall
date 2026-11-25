@@ -1,6 +1,7 @@
 from src.firewall.rule import (
     Rule,
     decode_chromosome_to_ruleset,
+    format_ruleset,
     BITS_PER_RULE,
 )
 from src.firewall.evaluator import (
@@ -12,6 +13,7 @@ from src.firewall.evaluator import (
 __all__ = [
     "Rule",
     "decode_chromosome_to_ruleset",
+    "format_ruleset",
     "BITS_PER_RULE",
     "evaluate_packet",
     "evaluate_ruleset",

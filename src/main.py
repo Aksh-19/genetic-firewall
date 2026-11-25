@@ -124,6 +124,7 @@ def main():
     rules_table.add_column("Order", style="bold yellow", width=8)
     rules_table.add_column("Action", style="bold", width=10)
     rules_table.add_column("Protocol", style="cyan", width=10)
+    rules_table.add_column("Source IP", style="blue", width=16)
     rules_table.add_column("Port", style="magenta", width=12)
     rules_table.add_column("Flag Pattern", style="red", width=14)
 
@@ -134,10 +135,12 @@ def main():
             else "[bold green]ALLOW[/bold green]"
         )
         port_display = str(r.dst_port) if r.dst_port is not None else "ANY (*)"
+        src_display = "ANY (*)" if r.src_ip == "ANY" else r.src_ip
         rules_table.add_row(
             f"Rule {idx}",
             action_style,
             r.protocol,
+            src_display,
             port_display,
             r.flags_pattern,
         )
