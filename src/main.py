@@ -130,11 +130,12 @@ def render_live_dashboard(
     log_path: str,
 ) -> Layout:
     """Builds the live terminal layout for Phase 4 real-time evolution."""
+    rules = state.get("best_rules", [])
     layout = Layout()
     layout.split_column(
         Layout(name="header", size=3),
         Layout(name="status", size=7),
-        Layout(name="rules", size=12),
+        Layout(name="rules", size=max(12, len(rules) + 6)),
         Layout(name="footer", size=4),
     )
 
@@ -184,7 +185,6 @@ def render_live_dashboard(
         Panel(evo_text, title="🧬 Continuous GA Engine", border_style="magenta")
     )
 
-    rules = state.get("best_rules", [])
     if rules:
         layout["rules"].update(build_rules_table(rules))
     else:
@@ -263,7 +263,7 @@ def live(
     lb_cfg = cfg.get("labeler", {})
     lg_cfg = cfg.get("logging", {})
 
-    rules_count = int(ga_cfg.get("rules_count", 6))
+    rules_count = int(ga_cfg.get("rules_count", 8))
     rules_export_path = str(lg_cfg.get("rules_export_path", "logs/best_rules.txt"))
     log_path = str(lg_cfg.get("generations_log_path", "logs/generations.jsonl"))
 
@@ -492,7 +492,8 @@ def static() -> None:
         f"([green]{legit_count} Legit[/green], [red]{attack_count} Malicious SYN Floods[/red])\n"
     )
 
-    rules_count = 5
+    cfg = load_config(project_root / "configs" / "default.yaml")
+    rules_count = int(cfg.get("ga", {}).get("rules_count", 8))
     fitness_fn = create_firewall_fitness_fn(
         dataset, bits_per_rule=BITS_PER_RULE
     )

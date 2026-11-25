@@ -1,7 +1,7 @@
 # The Genetic Firewall - Default Configuration
 
 ga:
-  rules_count: 6
+  rules_count: 8
   population_size: 50
   generations: 30
   crossover_rate: 0.85
