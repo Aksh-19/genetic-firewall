@@ -510,7 +510,12 @@ class RuleApplier:
         """Pins immutable safety rules at the top before any evolved rules."""
         return list(self.safety_rules) + list(evolved_rules)
 
-    def should_update(self, generation: int, candidate_fitness: float) -> Tuple[bool, str]:
+    def should_update(
+        self,
+        generation: int,
+        candidate_fitness: float,
+        current_active_fitness: Optional[float] = None,
+    ) -> Tuple[bool, str]:
         """Applies rate limiting so live rules don't flicker every generation."""
         if self.active_fitness is None:
             return True, "initial_apply"
@@ -519,14 +524,17 @@ class RuleApplier:
         if gens_elapsed >= self.min_generations_between_updates:
             return True, "periodic_interval"
 
-        # Significant fitness jump overrides the periodic cooldown
-        if self.active_fitness <= 0:
-            if candidate_fitness > self.active_fitness:
+        baseline = (
+            self.active_fitness
+            if current_active_fitness is None
+            else current_active_fitness
+        )
+        # Significant fitness jump over active ruleset's current score overrides cooldown
+        if baseline <= 0:
+            if candidate_fitness > baseline:
                 return True, "significant_improvement"
         else:
-            improvement = (candidate_fitness - self.active_fitness) / abs(
-                self.active_fitness
-            )
+            improvement = (candidate_fitness - baseline) / abs(baseline)
             if improvement > self.min_fitness_improvement_pct:
                 return True, "significant_improvement"
 
@@ -549,6 +557,7 @@ class RuleApplier:
         generation: int,
         fitness: float,
         force: bool = False,
+        current_active_fitness: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
         Safely deploys a candidate evolved ruleset, backing up the previous
@@ -556,7 +565,11 @@ class RuleApplier:
         """
         with self._lock:
             if not force:
-                allowed, reason = self.should_update(generation, fitness)
+                allowed, reason = self.should_update(
+                    generation,
+                    fitness,
+                    current_active_fitness=current_active_fitness,
+                )
                 if not allowed:
                     self.updates_skipped_rate_limit += 1
                     self.last_status = f"RATE_LIMITED (gen={generation})"

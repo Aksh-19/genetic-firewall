@@ -135,6 +135,33 @@ def test_rate_limiting_and_significant_improvement_override():
     assert res4["reason"] == "periodic_interval"
 
 
+def test_rate_limiting_detects_active_ruleset_degradation():
+    applier = RuleApplier(
+        min_generations_between_updates=10,
+        min_fitness_improvement_pct=0.05,
+    )
+    calm_rules = [Rule("TCP", 443, "ANY", "ALLOW")]
+    attack_rules = [Rule("TCP", 80, "SYN_ONLY", "DROP", src_ip="203.0.113.0/24")]
+
+    # Gen 1: calm rules scored 1.0 per packet on calm traffic
+    assert applier.apply_rules(calm_rules, generation=1, fitness=1.0)["applied"] is True
+
+    # Gen 2: calm traffic continues -> active rules still score 1.0 -> rate-limited
+    res_calm = applier.apply_rules(
+        calm_rules, generation=2, fitness=1.0, current_active_fitness=1.0
+    )
+    assert res_calm["applied"] is False
+    assert res_calm["reason"] == "rate_limited"
+
+    # Gen 3: attack starts -> calm_rules degrade to 0.25 on current traffic,
+    # while attack_rules score 1.0 -> overrides cooldown immediately!
+    res_atk = applier.apply_rules(
+        attack_rules, generation=3, fitness=1.0, current_active_fitness=0.25
+    )
+    assert res_atk["applied"] is True
+    assert res_atk["reason"] == "significant_improvement"
+
+
 def test_live_proxy_and_automatic_rollback(tmp_path):
     stop_event = threading.Event()
     server = TargetServer(host="127.0.0.1", port=0)

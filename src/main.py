@@ -444,12 +444,17 @@ def live(
         score, eval_stats = evaluate_ruleset(rules, packets)
         phase = phase_provider()
 
-        # Normalize score per packet so rolling window growth doesn't bypass rate-limiting
-        normalized_fitness = score / max(1, len(packets))
+        # Re-score the currently active ruleset on this traffic snapshot so a sudden
+        # attack triggers immediate replacement instead of waiting on cooldown.
+        packet_count = max(1, len(packets))
+        active_rules = applier.stats()["active_rules"]
+        active_score, _ = evaluate_ruleset(active_rules, packets)
+
         applier.apply_rules(
             rules,
             generation=gen_stats["generation"],
-            fitness=normalized_fitness,
+            fitness=score / packet_count,
+            current_active_fitness=active_score / packet_count,
         )
 
         export_best_rules(
