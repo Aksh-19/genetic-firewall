@@ -26,6 +26,17 @@ labeler:
   udp_threshold: 15
   subnet_udp_threshold: 20
 
+applier:
+  enabled: true
+  proxy_host: 127.0.0.1
+  proxy_port: 8888
+  server_host: 127.0.0.1
+  server_port: 8889
+  min_generations_between_updates: 8
+  min_fitness_improvement_pct: 0.05
+  health_check_timeout: 0.5
+  export_os_rules: true
+
 logging:
   rules_export_path: logs/best_rules.txt
   generations_log_path: logs/generations.jsonl

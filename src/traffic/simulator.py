@@ -179,6 +179,8 @@ class LiveTrafficStream:
         phase_duration: float = 10.0,
         auto_cycle: bool = True,
         udp_listen_port: Optional[int] = None,
+        proxy_host: Optional[str] = None,
+        proxy_port: Optional[int] = None,
     ):
         self.buffer = buffer
         self.legit_pps = legit_pps
@@ -186,6 +188,8 @@ class LiveTrafficStream:
         self.phase_duration = phase_duration
         self.auto_cycle = auto_cycle
         self.udp_listen_port = udp_listen_port
+        self.proxy_host = proxy_host or "127.0.0.1"
+        self.proxy_port = proxy_port
 
         self._phase_index = 0
         self._current_phase = TRAFFIC_PHASES[0]
@@ -249,31 +253,58 @@ class LiveTrafficStream:
     def _run_stream(self, stop_event: threading.Event) -> None:
         tick = 0.1
         last_switch = time.monotonic()
+        proxy_sock = (
+            socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            if self.proxy_port is not None
+            else None
+        )
 
-        while not stop_event.is_set():
-            now = time.monotonic()
-            if self.auto_cycle and (now - last_switch) >= self.phase_duration:
-                self._phase_index = (self._phase_index + 1) % len(TRAFFIC_PHASES)
-                self.set_phase(TRAFFIC_PHASES[self._phase_index])
-                last_switch = now
+        try:
+            while not stop_event.is_set():
+                now = time.monotonic()
+                if self.auto_cycle and (now - last_switch) >= self.phase_duration:
+                    self._phase_index = (self._phase_index + 1) % len(TRAFFIC_PHASES)
+                    self.set_phase(TRAFFIC_PHASES[self._phase_index])
+                    last_switch = now
 
-            phase = self.current_phase
-            legit_count = max(1, int(round(self.legit_pps * tick)))
-            batch = [make_legit_packet() for _ in range(legit_count)]
+                phase = self.current_phase
+                legit_count = max(1, int(round(self.legit_pps * tick)))
+                batch: List[Dict[str, Any]] = []
+                for _ in range(legit_count):
+                    pkt = make_legit_packet()
+                    if proxy_sock is not None:
+                        pkt["_sim_kind"] = "LEGIT"
+                    batch.append(pkt)
 
-            if phase == "SYN_FLOOD":
-                atk_count = max(1, int(round(self.attack_pps * tick)))
-                batch.extend(make_syn_flood_packet() for _ in range(atk_count))
-            elif phase == "PORT_SCAN":
-                atk_count = max(1, int(round(self.attack_pps * tick)))
-                batch.extend(make_port_scan_packet() for _ in range(atk_count))
-            elif phase == "UDP_FLOOD":
-                atk_count = max(1, int(round(self.attack_pps * tick)))
-                batch.extend(make_udp_flood_packet() for _ in range(atk_count))
+                atk_builder = {
+                    "SYN_FLOOD": make_syn_flood_packet,
+                    "PORT_SCAN": make_port_scan_packet,
+                    "UDP_FLOOD": make_udp_flood_packet,
+                }.get(phase)
+                if atk_builder is not None:
+                    atk_count = max(1, int(round(self.attack_pps * tick)))
+                    for _ in range(atk_count):
+                        pkt = atk_builder()
+                        if proxy_sock is not None:
+                            pkt["_sim_kind"] = "MALICIOUS"
+                        batch.append(pkt)
 
-            random.shuffle(batch)
-            self.buffer.add_packets(batch, auto_label=True)
-            stop_event.wait(tick)
+                random.shuffle(batch)
+                if proxy_sock is not None and self.proxy_port is not None:
+                    for pkt in batch:
+                        try:
+                            proxy_sock.sendto(
+                                json.dumps(pkt).encode("utf-8"),
+                                (self.proxy_host, self.proxy_port),
+                            )
+                        except OSError:
+                            break
+                else:
+                    self.buffer.add_packets(batch, auto_label=True)
+                stop_event.wait(tick)
+        finally:
+            if proxy_sock is not None:
+                proxy_sock.close()
 
     def start(self, stop_event: threading.Event) -> None:
         """Starts the stream (and optional UDP listener) in background threads."""
@@ -302,12 +333,12 @@ def send_external_attack(
     attack_type: str = "syn_flood",
     count: int = 300,
     host: str = "127.0.0.1",
-    port: int = 9999,
+    port: int = 8888,
     delay: float = 0.005,
 ) -> int:
     """
-    Sends simulated attack packets over localhost UDP to a running live firewall
-    instance (so a second terminal can launch attacks without sudo).
+    Sends simulated attack packets over localhost UDP to the live Firewall Proxy
+    (or standalone UDP listener), so a second terminal can launch attacks without sudo.
     """
     builders = {
         "syn_flood": make_syn_flood_packet,
@@ -323,6 +354,7 @@ def send_external_attack(
         for _ in range(count):
             pkt = builder()
             pkt["attack_type"] = normalized.upper()
+            pkt["_sim_kind"] = "MALICIOUS"
             sock.sendto(json.dumps(pkt).encode("utf-8"), (host, port))
             sent += 1
             if delay > 0:
